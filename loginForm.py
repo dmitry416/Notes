@@ -50,7 +50,7 @@ class Ui_Form(object):
         self.enterButton = QtWidgets.QPushButton(self.verticalLayoutWidget)
         self.enterButton.setMinimumSize(QtCore.QSize(0, 30))
         self.enterButton.setMaximumSize(QtCore.QSize(125, 16777215))
-        self.enterButton.setObjectName("enterButton")
+        self.enterButton.setObjectName("leaveButton")
         self.horizontalLayout.addWidget(self.enterButton)
         self.createButton = QtWidgets.QPushButton(self.verticalLayoutWidget)
         self.createButton.setMinimumSize(QtCore.QSize(0, 30))
