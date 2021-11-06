@@ -95,3 +95,4 @@ class Ui_MainWindow(object):
         self.saveButton.setText(_translate("MainWindow", "Сохранить"))
         self.deleteButton.setText(_translate("MainWindow", "Удалить"))
         self.deleteAccountButton.setText(_translate("MainWindow", "Удалить аккаунт"))
+

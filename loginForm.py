@@ -69,3 +69,4 @@ class Ui_Form(object):
         self.label_2.setText(_translate("Form", "Пароль"))
         self.enterButton.setText(_translate("Form", "Войти"))
         self.createButton.setText(_translate("Form", "Создать"))
+
