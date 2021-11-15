@@ -1,11 +1,12 @@
 import sys
 import os
+import csv
 import shutil
 import pyzipper
 import hashlib
 import sqlite3
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, \
-    QMessageBox, QInputDialog, QVBoxLayout, QPushButton
+    QMessageBox, QInputDialog, QVBoxLayout, QPushButton, QTableWidgetItem
 from PyQt5 import QtWidgets
 from loginForm import Ui_Form
 from mainWindow import Ui_MainWindow
@@ -64,7 +65,8 @@ class HelpfulMethods:
     def make_zip(name, password, delete=False):
         if not delete:
             os.chdir(f'./data/{name}/')
-            with pyzipper.AESZipFile(f'{__file__[:-7]}data/{name}.zip', 'w', compression=pyzipper.ZIP_LZMA,
+            with pyzipper.AESZipFile(f'{__file__[:-7]}data/{name}.zip', 'w',
+                                     compression=pyzipper.ZIP_LZMA,
                                      encryption=pyzipper.WZ_AES) as zf:
                 zf.setpassword(bytes(password, 'utf-8'))
                 for f in os.listdir():
@@ -76,7 +78,8 @@ class HelpfulMethods:
     @staticmethod
     def make_unzip(name, password):
         os.chdir(f'./data/')
-        with pyzipper.AESZipFile(name, 'r', compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as z:
+        with pyzipper.AESZipFile(name, 'r', compression=pyzipper.ZIP_LZMA,
+                                 encryption=pyzipper.WZ_AES) as z:
             z.setpassword(bytes(password, 'utf-8'))
             z.extractall(name[:-4])
         os.remove(name)
@@ -86,6 +89,7 @@ class HelpfulMethods:
 class LoginForm(QWidget, Ui_Form):
     def __init__(self):
         super().__init__()
+        self.setWindowTitle('Notes')
         self.setupUi(self)
         self.passwordEdit.setEchoMode(QtWidgets.QLineEdit.Password)
         self.enterButton.clicked.connect(self.enterMethod)
@@ -107,36 +111,40 @@ class LoginForm(QWidget, Ui_Form):
     def createMethod(self):
         if not HelpfulMethods.is_correct_password(self.loginEdit.text()):
             self.passwordEdit.setText('')
-            HelpfulMethods.throw_message('Неверный формат логина',
-                                         'Логин может состоять только из букв и цифр, и быть не меньше 5 символов.')
+            m = 'Логин может состоять только из букв и цифр, и быть не меньше 5 символов.'
+            HelpfulMethods.throw_message('Неверный формат логина', m)
             return
         if not HelpfulMethods.is_correct_password(self.passwordEdit.text()):
             self.passwordEdit.setText('')
-            HelpfulMethods.throw_message('Неверный формат пароля',
-                                         'Пароль может состоять только из букв и цифр, и быть не меньше 5 символов.')
+            m = 'Пароль может состоять только из букв и цифр, и быть не меньше 5 символов.'
+            HelpfulMethods.throw_message('Неверный формат пароля', m)
             return
         con = sqlite3.connect("users.sqlite")
         cur = con.cursor()
-        login = cur.execute(f"""SELECT * FROM users WHERE login = '{self.loginEdit.text()}'""").fetchall()
+        m = f"""SELECT * FROM users WHERE login = '{self.loginEdit.text()}'"""
+        login = cur.execute(m).fetchall()
         if login:
             self.passwordEdit.setText('')
             HelpfulMethods.throw_message('Неверный формат логина', 'Такой логин уже существует.')
             return
         Account.Salt = os.urandom(32)
         cur.execute(f"""
-INSERT INTO users(login, password) VALUES('{self.loginEdit.text()}', '{(Account.Salt + HelpfulMethods.get_hash(
+INSERT INTO users(login, password) VALUES('{self.loginEdit.text()}', '{(Account.Salt + 
+                                                                        HelpfulMethods.get_hash(
             Account.Salt, self.passwordEdit.text())).hex()}')
-                    """).fetchall()
+""").fetchall()
         Account.Login = self.loginEdit.text()
         Account.Password = self.passwordEdit.text()
         con.commit()
-        self.openMainWindow(HelpfulMethods.get_id(self.loginEdit.text(), self.passwordEdit.text())[0])
+        self.openMainWindow(HelpfulMethods.get_id(self.loginEdit.text(),
+                                                  self.passwordEdit.text())[0])
         con.close()
 
     def openMainWindow(self, id):
         self._mf = MainForm(id)
         self._mf.setFixedSize(1000, 600)
         self._mf.show()
+        self._mf.setWindowTitle('Notes')
         self.close()
 
 
@@ -156,20 +164,76 @@ class MainForm(QMainWindow, Ui_MainWindow):
         self.saveButton.clicked.connect(self.saveMethod)
         self.deleteButton.clicked.connect(self.deleteMethod)
         self.deleteAccountButton.clicked.connect(self.deleteAccountMethod)
+
+        self.createTable.clicked.connect(self.createTableMethod)
+        self.saveTable.clicked.connect(self.saveTableMethod)
+
         if os.path.exists(__file__[:-7] + 'data/' + self.hexhashlogin + '.zip'):
             HelpfulMethods.make_unzip(self.hexhashlogin + '.zip', Account.Password)
         self.updateScroll()
 
+    def createTableMethod(self):
+        rows_count, ok_pressed1 = QInputDialog.getInt(self, "Введите данные",
+                                                      "Количество строк", 1, 1)
+        if not ok_pressed1:
+            return
+        cols_count, ok_pressed2 = QInputDialog.getInt(self, "Введите данные",
+                                                      "Количество столбцов", 1, 1)
+        if ok_pressed1 and ok_pressed2:
+            self.tableWidget.setRowCount(rows_count)
+            self.tableWidget.setColumnCount(cols_count)
+
+    def saveTableMethod(self):
+        if self.curButton and self.curButton.text()[-4:] == '.csv':
+            with open(self.path +
+                      f'{self.hexhashlogin}/{self.curButton.text()[3:]}', 'wt', newline='') \
+                    as csvfile:
+                writer = csv.writer(
+                    csvfile, delimiter=';', quotechar='"',
+                    quoting=csv.QUOTE_MINIMAL)
+                for i in range(self.tableWidget.rowCount()):
+                    row = []
+                    for j in range(self.tableWidget.columnCount()):
+                        item = self.tableWidget.item(i, j)
+                        if item is not None:
+                            row.append(item.text())
+                    writer.writerow(row)
+            self.tableWidget.setRowCount(0)
+            self.tableWidget.setColumnCount(0)
+            self.plainTextEdit.setPlainText('')
+            self.curButton = None
+            self.updateScroll()
+            return
+        name, ok_pressed = QInputDialog.getText(self, "Введите название", "Название файла.")
+        if ok_pressed:
+            with open(self.path + f'{self.hexhashlogin}/{name}.csv', 'wt', newline='') as csvfile:
+                writer = csv.writer(
+                    csvfile, delimiter=';', quotechar='"',
+                    quoting=csv.QUOTE_MINIMAL)
+                for i in range(self.tableWidget.rowCount()):
+                    row = []
+                    for j in range(self.tableWidget.columnCount()):
+                        item = self.tableWidget.item(i, j)
+                        if item is not None:
+                            row.append(item.text())
+                    writer.writerow(row)
+            self.tableWidget.setRowCount(0)
+            self.tableWidget.setColumnCount(0)
+            self.plainTextEdit.setPlainText('')
+        self.updateScroll()
+
     def deleteMethod(self):
         if self.curButton:
-            result = HelpfulMethods.throw_message('Внимание', 'Вы действительно хотите удалить файл?', True)
+            result = HelpfulMethods.throw_message('Внимание',
+                                                  'Вы действительно хотите удалить файл?', True)
             if result == QMessageBox.No:
                 return
-            os.remove(self.path + f'{self.hexhashlogin}/{self.curButton.text()[3:]}.txt')
+            os.remove(self.path + f'{self.hexhashlogin}/{self.curButton.text()[3:]}')
             self.curButton = None
             self.updateScroll()
         else:
-            result = HelpfulMethods.throw_message('Внимание', 'Вы действительно хотите удалить запись?', True)
+            result = HelpfulMethods.throw_message('Внимание',
+                                                  'Вы действительно хотите удалить запись?', True)
             if result == QMessageBox.No:
                 return
         self.plainTextEdit.setPlainText('')
@@ -182,7 +246,7 @@ class MainForm(QMainWindow, Ui_MainWindow):
 
         for name in os.listdir(self.path + f'{self.hexhashlogin}'):
             b = QPushButton(self)
-            b.setText(name[:-4])
+            b.setText(name)
             b.setMinimumHeight(40)
             b.clicked.connect(self.fileButtonBehaviour)
             self.vbox.addWidget(b)
@@ -200,18 +264,44 @@ class MainForm(QMainWindow, Ui_MainWindow):
                 self.curButton = None
                 button.setText(button.text()[3:])
                 self.plainTextEdit.setPlainText("")
+                self.tableWidget.setRowCount(0)
+                self.tableWidget.setColumnCount(0)
+                self.tabWidget.setTabEnabled(1, True)
                 return
             self.curButton.setText(self.curButton.text()[3:])
         self.curButton = button
         self.curButton.setText('>> ' + self.curButton.text())
-        with open(self.path + f'{self.hexhashlogin}/{self.curButton.text()[3:] + ".txt"}', 'rt') as f:
+        with open(self.path + f'{self.hexhashlogin}/{self.curButton.text()[3:]}', 'rt') as f:
             self.plainTextEdit.setPlainText(f.read())
+        if self.curButton.text()[-4:] == '.csv':
+            self.tabWidget.setTabEnabled(1, True)
+            with open(self.path +
+                      f'{self.hexhashlogin}/{self.curButton.text()[3:]}', encoding="utf8")\
+                    as csvfile:
+                reader = list(csv.reader(csvfile, delimiter=';', quotechar='"'))
+                title = reader[0]
+                self.tableWidget.setColumnCount(len(title))
+                self.tableWidget.setHorizontalHeaderLabels(list(map(str,
+                                                                    range(1, len(title) + 1))))
+                self.tableWidget.setRowCount(0)
+                for i, row in enumerate(reader):
+                    self.tableWidget.setRowCount(
+                        self.tableWidget.rowCount() + 1)
+                    for j, elem in enumerate(row):
+                        self.tableWidget.setItem(
+                            i, j, QTableWidgetItem(elem))
+            self.tableWidget.resizeColumnsToContents()
+        else:
+            self.tabWidget.setTabEnabled(1, False)
 
     def saveMethod(self):
         if self.curButton:
             text = self.plainTextEdit.toPlainText()
-            with open(self.path + f'{self.hexhashlogin}/{self.curButton.text()[3:]}.txt', 'wt') as f:
+            with open(self.path + f'{self.hexhashlogin}/{self.curButton.text()[3:]}', 'wt') as f:
                 f.write(text)
+            self.plainTextEdit.setPlainText('')
+            self.curButton = None
+            self.updateScroll()
             return
         name, ok_pressed = QInputDialog.getText(self, "Введите название", "Название файла.")
         if ok_pressed:
@@ -227,14 +317,15 @@ class MainForm(QMainWindow, Ui_MainWindow):
         self._lf = LoginForm()
         self._lf.setFixedSize(1000, 600)
         self._lf.show()
+        self._lf.setWindowTitle('Notes')
         self.close()
 
     def changeLoginMethod(self):
         login, ok_pressed = QInputDialog.getText(self, "Новый логин", "Введите новый логин.")
         if ok_pressed:
             if not HelpfulMethods.is_correct_password(login):
-                HelpfulMethods.throw_message('Неверный формат логина',
-                                             'Логин может состоять только из букв и цифр, и быть не меньше 5 символов.')
+                m = 'Логин может состоять только из букв и цифр, и быть не меньше 5 символов.'
+                HelpfulMethods.throw_message('Неверный формат логина', m)
                 return
             con = sqlite3.connect("users.sqlite")
             cur = con.cursor()
@@ -249,8 +340,8 @@ class MainForm(QMainWindow, Ui_MainWindow):
         password, ok_pressed = QInputDialog.getText(self, "Новый пароль", "Введите новый пароль.")
         if ok_pressed:
             if not HelpfulMethods.is_correct_password(password):
-                HelpfulMethods.throw_message('Неверный формат пароля',
-                                             'Пароль может состоять только из букв и цифр, и быть не меньше 5 символов.')
+                m = 'Пароль может состоять только из букв и цифр, и быть не меньше 5 символов.'
+                HelpfulMethods.throw_message('Неверный формат пароля', m)
                 return
             con = sqlite3.connect("users.sqlite")
             cur = con.cursor()
@@ -261,7 +352,8 @@ class MainForm(QMainWindow, Ui_MainWindow):
             Account.Password = password
 
     def deleteAccountMethod(self):
-        result = HelpfulMethods.throw_message('Внимание', 'Вы действительно хотите удалить аккаунт?', True)
+        result = HelpfulMethods.throw_message('Внимание',
+                                              'Вы действительно хотите удалить аккаунт?', True)
         if result == QMessageBox.Yes:
             con = sqlite3.connect("users.sqlite")
             cur = con.cursor()
@@ -277,6 +369,7 @@ if __name__ == '__main__':
         lf = LoginForm()
         lf.setFixedSize(1000, 600)
         lf.show()
+        lf.setWindowTitle('Notes')
         sys.exit(app.exec())
     except:
         if Account.Salt and Account.Login:

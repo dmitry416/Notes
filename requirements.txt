@@ -1,1 +1,2 @@
-PyQt5
+PyQt5==5.15.4
+pyzipper==0.3.5
