@@ -24,7 +24,7 @@ Account = Account()
 
 class HelpfulMethods:
     @staticmethod
-    def get_id(login, password):
+    def get_id(login, password):  # получение id пользователя
         con = sqlite3.connect("users.sqlite")
         cur = con.cursor()
         if not cur.execute(f"""
@@ -41,14 +41,14 @@ class HelpfulMethods:
         return -1, None
 
     @staticmethod
-    def is_correct_password(data):
-        if data.isalnum():
-            if len(data) >= 5:
+    def is_correct_password(password):  # проверка на правильность пароля
+        if password.isalnum():
+            if len(password) >= 5:
                 return True
         return False
 
     @staticmethod
-    def throw_message(title, text, buttons=False):
+    def throw_message(title, text, buttons=False):  # диалоговое окно
         mb = QMessageBox()
         mb.setWindowTitle(title)
         mb.setText(text)
@@ -58,32 +58,32 @@ class HelpfulMethods:
         return mb.exec()
 
     @staticmethod
-    def get_hash(salt, text):
+    def get_hash(salt, text):  # получение хэша
         return hashlib.pbkdf2_hmac('sha256', text.encode('utf-8'), salt, 100000)
 
     @staticmethod
-    def make_zip(name, password, delete=False):
+    def make_zip(name, password, delete=False):  # создание zip с паролем
         if not delete:
-            os.chdir(f'./data/{name}/')
-            with pyzipper.AESZipFile(f'{__file__[:-7]}data/{name}.zip', 'w',
+            os.chdir(f'.\\data\\{name}\\')
+            with pyzipper.AESZipFile(f'{os.path.abspath(__file__)[:-7]}data\\{name}.zip', 'w',
                                      compression=pyzipper.ZIP_LZMA,
                                      encryption=pyzipper.WZ_AES) as zf:
                 zf.setpassword(bytes(password, 'utf-8'))
                 for f in os.listdir():
                     zf.write(f)
-        os.chdir(__file__[:-7])
+        os.chdir(os.path.abspath(__file__)[:-7])
 
-        shutil.rmtree(f'{__file__[:-7]}data/{name}/')
+        shutil.rmtree(f'{os.path.abspath(__file__)[:-7]}data\\{name}\\')
 
     @staticmethod
-    def make_unzip(name, password):
-        os.chdir(f'./data/')
+    def make_unzip(name, password): # распаковка zip с паролем
+        os.chdir(f'.\\data\\')
         with pyzipper.AESZipFile(name, 'r', compression=pyzipper.ZIP_LZMA,
                                  encryption=pyzipper.WZ_AES) as z:
             z.setpassword(bytes(password, 'utf-8'))
             z.extractall(name[:-4])
         os.remove(name)
-        os.chdir(__file__[:-7])
+        os.chdir(os.path.abspath(__file__)[:-7])
 
 
 class LoginForm(QWidget, Ui_Form):
@@ -140,20 +140,20 @@ INSERT INTO users(login, password) VALUES('{self.loginEdit.text()}', '{(Account.
                                                   self.passwordEdit.text())[0])
         con.close()
 
-    def openMainWindow(self, id):
+    def openMainWindow(self, id):  # открытие основного окна
         self._mf = MainForm(id)
-        self._mf.setFixedSize(1000, 600)
+        self._mf.setFixedSize(1015, 600)
         self._mf.show()
-        self._mf.setWindowTitle('Notes')
+        self._mf.setWindowTitle('Секретные записи')
         self.close()
 
 
 class MainForm(QMainWindow, Ui_MainWindow):
     def __init__(self, id):
         super().__init__()
-        self.path = __file__[:-7] + 'data/'
-        if not os.path.exists(__file__[:-7] + 'data/'):
-            os.mkdir(__file__[:-7] + 'data')
+        self.path = os.path.abspath(__file__)[:-7] + 'data\\'
+        if not os.path.exists(os.path.abspath(__file__)[:-7] + 'data\\'):
+            os.mkdir(os.path.abspath(__file__)[:-7] + 'data')
         self.setupUi(self)
         self.id = id
         self.hexhashlogin = HelpfulMethods.get_hash(Account.Salt, Account.Login).hex()
@@ -168,7 +168,7 @@ class MainForm(QMainWindow, Ui_MainWindow):
         self.createTable.clicked.connect(self.createTableMethod)
         self.saveTable.clicked.connect(self.saveTableMethod)
 
-        if os.path.exists(__file__[:-7] + 'data/' + self.hexhashlogin + '.zip'):
+        if os.path.exists(os.path.abspath(__file__)[:-7] + 'data\\' + self.hexhashlogin + '.zip'):
             HelpfulMethods.make_unzip(self.hexhashlogin + '.zip', Account.Password)
         self.updateScroll()
 
@@ -186,7 +186,7 @@ class MainForm(QMainWindow, Ui_MainWindow):
     def saveTableMethod(self):
         if self.curButton and self.curButton.text()[-4:] == '.csv':
             with open(self.path +
-                      f'{self.hexhashlogin}/{self.curButton.text()[3:]}', 'wt', newline='') \
+                      f'{self.hexhashlogin}\\{self.curButton.text()[3:]}', 'wt', newline='') \
                     as csvfile:
                 writer = csv.writer(
                     csvfile, delimiter=';', quotechar='"',
@@ -204,9 +204,11 @@ class MainForm(QMainWindow, Ui_MainWindow):
             self.curButton = None
             self.updateScroll()
             return
+        if not (self.tableWidget.columnCount() and self.tableWidget.rowCount()):
+            return 
         name, ok_pressed = QInputDialog.getText(self, "Введите название", "Название файла.")
         if ok_pressed:
-            with open(self.path + f'{self.hexhashlogin}/{name}.csv', 'wt', newline='') as csvfile:
+            with open(self.path + f'{self.hexhashlogin}\\{name}.csv', 'wt', newline='') as csvfile:
                 writer = csv.writer(
                     csvfile, delimiter=';', quotechar='"',
                     quoting=csv.QUOTE_MINIMAL)
@@ -228,7 +230,7 @@ class MainForm(QMainWindow, Ui_MainWindow):
                                                   'Вы действительно хотите удалить файл?', True)
             if result == QMessageBox.No:
                 return
-            os.remove(self.path + f'{self.hexhashlogin}/{self.curButton.text()[3:]}')
+            os.remove(self.path + f'{self.hexhashlogin}\\{self.curButton.text()[3:]}')
             self.curButton = None
             self.updateScroll()
         else:
@@ -238,7 +240,7 @@ class MainForm(QMainWindow, Ui_MainWindow):
                 return
         self.plainTextEdit.setPlainText('')
 
-    def updateScroll(self):
+    def updateScroll(self):  # метод обновляет scrollarea с кнопками
         if not os.path.exists(self.path + f'{self.hexhashlogin}'):
             os.mkdir(self.path + f'{self.hexhashlogin}')
         self.widget = QWidget()
@@ -257,7 +259,7 @@ class MainForm(QMainWindow, Ui_MainWindow):
         self.widget.setLayout(self.vbox)
         self.scrollArea.setWidget(self.widget)
 
-    def fileButtonBehaviour(self):
+    def fileButtonBehaviour(self):  # определяет поведение кнопки после нажатия
         button = self.sender()
         if self.curButton:
             if self.curButton == button:
@@ -276,7 +278,7 @@ class MainForm(QMainWindow, Ui_MainWindow):
         if self.curButton.text()[-4:] == '.csv':
             self.tabWidget.setTabEnabled(1, True)
             with open(self.path +
-                      f'{self.hexhashlogin}/{self.curButton.text()[3:]}', encoding="utf8")\
+                      f'{self.hexhashlogin}\\{self.curButton.text()[3:]}', encoding="utf8")\
                     as csvfile:
                 reader = list(csv.reader(csvfile, delimiter=';', quotechar='"'))
                 title = reader[0]
@@ -297,7 +299,7 @@ class MainForm(QMainWindow, Ui_MainWindow):
     def saveMethod(self):
         if self.curButton:
             text = self.plainTextEdit.toPlainText()
-            with open(self.path + f'{self.hexhashlogin}/{self.curButton.text()[3:]}', 'wt') as f:
+            with open(self.path + f'{self.hexhashlogin}\\{self.curButton.text()[3:]}', 'wt') as f:
                 f.write(text)
             self.plainTextEdit.setPlainText('')
             self.curButton = None
@@ -306,22 +308,28 @@ class MainForm(QMainWindow, Ui_MainWindow):
         name, ok_pressed = QInputDialog.getText(self, "Введите название", "Название файла.")
         if ok_pressed:
             text = self.plainTextEdit.toPlainText()
-            with open(self.path + f'{self.hexhashlogin}/{name}.txt', 'wt') as f:
+            with open(self.path + f'{self.hexhashlogin}\\{name}.txt', 'wt') as f:
                 f.write(text)
             self.plainTextEdit.setPlainText('')
         self.updateScroll()
 
     def leaveMethod(self, delete=False):
-        if os.path.exists(__file__[:-7] + 'data/' + self.hexhashlogin):
+        if os.path.exists(os.path.abspath(__file__)[:-7] + 'data\\' + self.hexhashlogin):
             HelpfulMethods.make_zip(self.hexhashlogin, Account.Password, delete)
         self._lf = LoginForm()
-        self._lf.setFixedSize(1000, 600)
+        self._lf.setFixedSize(1015, 600)
         self._lf.show()
-        self._lf.setWindowTitle('Notes')
+        self._lf.setWindowTitle('Секретные записи')
         self.close()
 
     def changeLoginMethod(self):
         login, ok_pressed = QInputDialog.getText(self, "Новый логин", "Введите новый логин.")
+        con = sqlite3.connect("users.sqlite")
+        cur = con.cursor()
+        m = f"""SELECT * FROM users WHERE login = '{login}'"""
+        if cur.execute(m).fetchall():
+            HelpfulMethods.throw_message('Неверный формат логина', 'Такой логин уже существует.')
+            return
         if ok_pressed:
             if not HelpfulMethods.is_correct_password(login):
                 m = 'Логин может состоять только из букв и цифр, и быть не меньше 5 символов.'
@@ -364,15 +372,16 @@ class MainForm(QMainWindow, Ui_MainWindow):
 
 
 if __name__ == '__main__':
+    os.chdir(os.path.abspath(__file__)[:-7])
     try:
         app = QApplication(sys.argv)
         lf = LoginForm()
-        lf.setFixedSize(1000, 600)
+        lf.setFixedSize(1015, 600)
         lf.show()
-        lf.setWindowTitle('Notes')
+        lf.setWindowTitle('Секретные записи')
         sys.exit(app.exec())
     except:
         if Account.Salt and Account.Login:
             hash = HelpfulMethods.get_hash(Account.Salt, Account.Login).hex()
-            if os.path.exists(__file__[:-7] + 'data/' + hash):
+            if os.path.exists(os.path.abspath(__file__)[:-7] + 'data\\' + hash):
                 HelpfulMethods.make_zip(hash, Account.Password)
