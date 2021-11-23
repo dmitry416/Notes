@@ -64,14 +64,16 @@ class HelpfulMethods:
     @staticmethod
     def make_zip(name, password, delete=False):  # создание zip с паролем
         if not delete:
-            os.chdir(f'.\\data\\{name}\\')
-            with pyzipper.AESZipFile(f'{os.path.abspath(__file__)[:-7]}data\\{name}.zip', 'w',
+            os.chdir(f'.\\data\\')
+            with pyzipper.AESZipFile(f'{name}.zip', 'w',
                                      compression=pyzipper.ZIP_LZMA,
                                      encryption=pyzipper.WZ_AES) as zf:
                 zf.setpassword(bytes(password, 'utf-8'))
+                os.chdir(f'.\\{name}')
                 for f in os.listdir():
                     zf.write(f)
-        os.chdir(os.path.abspath(__file__)[:-7])
+                os.chdir('../')
+            os.chdir('../')
 
         shutil.rmtree(f'{os.path.abspath(__file__)[:-7]}data\\{name}\\')
 
@@ -83,7 +85,7 @@ class HelpfulMethods:
             z.setpassword(bytes(password, 'utf-8'))
             z.extractall(name[:-4])
         os.remove(name)
-        os.chdir(os.path.abspath(__file__)[:-7])
+        os.chdir('../')
 
 
 class LoginForm(QWidget, Ui_Form):
@@ -372,7 +374,6 @@ class MainForm(QMainWindow, Ui_MainWindow):
 
 
 if __name__ == '__main__':
-    os.chdir(os.path.abspath(__file__)[:-7])
     try:
         app = QApplication(sys.argv)
         lf = LoginForm()
